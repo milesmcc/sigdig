@@ -18,10 +18,7 @@ impl From<io::Error> for CodecError {
 }
 
 pub trait Codec {
-    fn stream<R, W>(&mut self, reader: &mut R, writer: &mut W) -> Result<u64, CodecError>
-    where
-        R: Read,
-        W: Write,
+    fn stream(&mut self, reader: &mut dyn Read, writer: &mut dyn Write) -> Result<u64, CodecError>
     {
         let mut total_bytes_written: u64 = 0;
         let mut buffer = [0 as u8; DEFAULT_BUFFER_SIZE];
@@ -52,3 +49,6 @@ pub use pipe::Pipe;
 
 pub mod not;
 pub use not::Not;
+
+pub mod huffman;
+pub use huffman::HuffmanEncoder;

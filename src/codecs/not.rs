@@ -3,7 +3,7 @@ use crate::codecs::{Codec, CodecError};
 pub struct Not {}
 
 impl Not {
-    pub fn new() -> Not {
+    pub fn new() -> Self {
         return Not {};
     }
 }
