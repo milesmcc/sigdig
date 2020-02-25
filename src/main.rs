@@ -2,8 +2,8 @@ extern crate clap;
 extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate simplelog;
 extern crate bitvec;
+extern crate simplelog;
 
 mod codecs;
 
@@ -33,13 +33,15 @@ fn main() {
         .about("Basic digital signal processing tools")
         .subcommand(SubCommand::with_name("pipe").about("do nothing"))
         .subcommand(SubCommand::with_name("not").about("switch all bits"))
-        .subcommand(SubCommand::with_name("huff").about("apply huffman encoding"))
+        .subcommand(SubCommand::with_name("huffenc").about("apply huffman encoding"))
+        .subcommand(SubCommand::with_name("huffdec").about("apply huffman decoding"))
         .get_matches();
 
     match matches.subcommand() {
         ("pipe", Some(_)) => io_wrapper(codecs::Pipe::new()),
         ("not", Some(_)) => io_wrapper(codecs::Not::new()),
-        ("huff", Some(_)) => io_wrapper(codecs::HuffmanEncoder::new(512)),
+        ("huffenc", Some(_)) => io_wrapper(codecs::HuffmanEncoder::new(1048576)),
+        ("huffdec", Some(_)) => io_wrapper(codecs::HuffmanDecoder::new()),
         _ => {
             error!("no valid command specified; try `--help`.");
             exit(1);

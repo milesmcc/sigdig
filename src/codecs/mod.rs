@@ -51,4 +51,4 @@ pub mod not;
 pub use not::Not;
 
 pub mod huffman;
-pub use huffman::HuffmanEncoder;
+pub use huffman::{HuffmanEncoder, HuffmanDecoder};
