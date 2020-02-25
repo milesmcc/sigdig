@@ -7,6 +7,7 @@ use std::cmp::{Ordering, Reverse};
 use std::collections::BinaryHeap;
 use std::iter::FromIterator;
 use std::convert::TryInto;
+use std::collections::VecDeque;
 
 // Type parameters for BitVecs
 type BVb = BitVec<Msb0, u8>;
@@ -51,10 +52,6 @@ impl HuffmanBuilder {
             (0..=255).map(|i| Reverse(HuffmanNode::Terminal(i, self.counts[i as usize]))),
         );
 
-        for i in 0..256 {
-            error!("{}: {}", i, self.counts[i]);
-        }
-
         // Go through the smallest items in the heap and continuously merge them until
         // there is only one item in the heap -- the root.
         while heap.len() >= 2 {
@@ -71,6 +68,10 @@ impl HuffmanBuilder {
 
             let new_parent = HuffmanNode::Interior(Box::from(left), Box::from(right));
             heap.push(Reverse(new_parent));
+        }
+
+        for i in 0..256 {
+            error!("{}: {:?}", i, index.get(i));
         }
 
         return HuffmanTree {
@@ -132,7 +133,7 @@ impl HuffmanTree {
 pub struct HuffmanEncoder {
     tree: Option<HuffmanTree>,
     builder: HuffmanBuilder,
-    buffer_in: Vec<u8>,
+    buffer_in: VecDeque<u8>,
     buffer_out: BVb,
     build_tree_after: u64,
 }
@@ -142,17 +143,19 @@ impl HuffmanEncoder {
         HuffmanEncoder {
             tree: None,
             builder: HuffmanBuilder::new(),
-            buffer_in: Vec::new(),
+            buffer_in: VecDeque::new(),
             buffer_out: BVb::new(),
             build_tree_after: build_tree_after,
         }
     }
 
     fn process_buffer(&mut self, force_push: bool) -> Result<Vec<u8>, CodecError> {
+        // Process input buffer
         match &mut self.tree {
             Some(tree) => {
-                while let Some(byte) = self.buffer_in.pop() {
-                    self.buffer_out.append(&mut tree.encode(byte).unwrap()); // TODO: remove unwrap
+                while let Some(byte) = self.buffer_in.pop_front() {
+                    let value = &mut tree.encode(byte).unwrap();
+                    self.buffer_out.append(value); // TODO: remove unwrap
                 }
             }
             None => {
@@ -165,7 +168,8 @@ impl HuffmanEncoder {
             }
         }
 
-        if self.buffer_out.len() % 64 == 0 || force_push {
+        // Process output buffer
+        if self.buffer_out.len() % 8 == 0 || force_push {
             let out: Vec<u8> = self.buffer_out.clone().into_vec();
             self.buffer_out.clear();
             Ok(out)
@@ -182,7 +186,8 @@ impl Codec for HuffmanEncoder {
                 self.builder.push(*byte);
             }
         }
-        self.buffer_in.append(&mut buffer);
+        error!("{:?}", buffer);
+        self.buffer_in.extend(buffer.iter());
         self.process_buffer(false)
     }
 
@@ -214,10 +219,14 @@ impl Codec for HuffmanDecoder {
             Some(tree) => {
                 let mut followed_path = BVb::new(); // the current path being followed; important for if buffer ends before we get to terminal tree node
                 let mut current_position = &tree.root;
-                while let Some(bit) = self.buffer_in.pop() { // navigate the tree
-                    followed_path.push(bit);
+                loop { // navigate the tree
                     match current_position {
                         HuffmanNode::Interior(left, right) => {
+                            let bit = match self.buffer_in.pop() {
+                                Some(bit) => bit,
+                                None => break,
+                            };
+                            followed_path.push(bit);
                             match bit {
                                 false => current_position = left,
                                 true => current_position = right,
