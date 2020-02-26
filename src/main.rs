@@ -2,15 +2,18 @@ extern crate clap;
 extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate bitvec;
 extern crate simplelog;
+#[macro_use]
+extern crate lazy_static;
 
 mod codecs;
+mod util;
 
-use clap::{App, Arg, SubCommand};
+use clap::{App, SubCommand};
 use codecs::{Codec, CodecError};
 use std::io;
 use std::process::exit;
+pub use util::BitQueue;
 
 fn io_wrapper<T: Codec>(mut codec: T) {
     match codec.stream(&mut io::stdin(), &mut io::stdout()) {

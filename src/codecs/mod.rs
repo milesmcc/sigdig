@@ -8,7 +8,6 @@ pub const DEFAULT_BUFFER_SIZE: usize = 8192;
 pub enum CodecError {
     IOError(io::Error),
     ReadError(io::Error),
-    WriteError(io::Error),
 }
 
 impl From<io::Error> for CodecError {
