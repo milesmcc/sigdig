@@ -5,9 +5,9 @@ use bitvec::order::Msb0;
 use bitvec::prelude::BitVec;
 use std::cmp::{Ordering, Reverse};
 use std::collections::BinaryHeap;
-use std::iter::FromIterator;
-use std::convert::TryInto;
 use std::collections::VecDeque;
+use std::convert::TryInto;
+use std::iter::FromIterator;
 
 // Type parameters for BitVecs
 type BVb = BitVec<Msb0, u8>;
@@ -70,9 +70,9 @@ impl HuffmanBuilder {
             heap.push(Reverse(new_parent));
         }
 
-        for i in 0..256 {
-            error!("{}: {:?}", i, index.get(i));
-        }
+        // for i in 0..256 {
+        //     error!("{}: {:?}", i, index.get(i));
+        // }
 
         return HuffmanTree {
             root: heap.pop().unwrap().0, // should never panic
@@ -154,8 +154,8 @@ impl HuffmanEncoder {
         match &mut self.tree {
             Some(tree) => {
                 while let Some(byte) = self.buffer_in.pop_front() {
-                    let value = &mut tree.encode(byte).unwrap();
-                    self.buffer_out.append(value); // TODO: remove unwrap
+                    let value = &mut tree.encode(byte).unwrap(); // TODO: remove unwrap
+                    self.buffer_out.append(value);
                 }
             }
             None => {
@@ -170,6 +170,10 @@ impl HuffmanEncoder {
 
         // Process output buffer
         if self.buffer_out.len() % 8 == 0 || force_push {
+            if force_push {
+                error!("force pushing {} bits", self.buffer_out.len());
+            }
+            self.buffer_out.force_align();
             let out: Vec<u8> = self.buffer_out.clone().into_vec();
             self.buffer_out.clear();
             Ok(out)
@@ -186,7 +190,7 @@ impl Codec for HuffmanEncoder {
                 self.builder.push(*byte);
             }
         }
-        error!("{:?}", buffer);
+        // error!("{:?}", buffer);
         self.buffer_in.extend(buffer.iter());
         self.process_buffer(false)
     }
@@ -219,35 +223,37 @@ impl Codec for HuffmanDecoder {
             Some(tree) => {
                 let mut followed_path = BVb::new(); // the current path being followed; important for if buffer ends before we get to terminal tree node
                 let mut current_position = &tree.root;
-                loop { // navigate the tree
+                'tree: loop {
+                    // navigate the tree
                     match current_position {
                         HuffmanNode::Interior(left, right) => {
-                            let bit = match self.buffer_in.pop() {
-                                Some(bit) => bit,
-                                None => break,
+                            let bit = match self.buffer_in.len() {
+                                0 => break 'tree,
+                                _ => self.buffer_in.remove(0),
                             };
                             followed_path.push(bit);
                             match bit {
                                 false => current_position = left,
                                 true => current_position = right,
                             }
-                        },
+                        }
                         HuffmanNode::Terminal(byte, _) => {
                             out.push(*byte);
                             current_position = &tree.root;
                             followed_path.clear();
-                        },
+                        }
                     }
                 }
+                error!("followed: {:?} (buffer: {:?})", followed_path, self.buffer_in);
                 self.buffer_in.append(&mut followed_path);
             }
             None => {
                 // Check if it's possible to build the tree
-                if self.buffer_in.len() >= 64 * 256 { // size of dictionary
+                if self.buffer_in.len() >= 64 * 256 {
+                    // size of dictionary
                     // Get counts from incoming buffer
-                    let counts_header = self.buffer_in[0..64*256].to_vec().into_vec();
-                    self.buffer_in = self.buffer_in[64*256..self.buffer_in.len()].to_vec();
-                    
+                    let counts_header = self.buffer_in[0..64 * 256].to_vec().into_vec();
+                    self.buffer_in = self.buffer_in[64 * 256..self.buffer_in.len()].to_vec();
                     // Build tree
                     let mut counts: [u64; 256] = [0; 256];
                     for i in 0..256 {
